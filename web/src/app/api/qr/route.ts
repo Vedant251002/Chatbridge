@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { NextResponse } from "next/server";
 import { getQrSnapshot } from "@/lib/qr-state";
+import { redis } from "@/lib/redis";
 
 export async function GET() {
   const { status, qrString } = await getQrSnapshot();
@@ -16,4 +17,11 @@ export async function GET() {
   });
 
   return NextResponse.json({ status, qrImage });
+}
+
+// POST /api/qr → ask the backend to mint a fresh QR. The Baileys process
+// listens on the `whatsapp:qr:request` channel and (re)opens its socket.
+export async function POST() {
+  await redis.publish("whatsapp:qr:request", "1");
+  return NextResponse.json({ ok: true });
 }

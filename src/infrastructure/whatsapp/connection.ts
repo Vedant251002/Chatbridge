@@ -12,6 +12,9 @@ import type { Logger } from "../../domain/ports/logger.js";
 import type { RedisQrState } from "./qr-state.js";
 
 const RECONNECT_DELAY_MS = 5_000;
+// WhatsApp invalidates a QR roughly every minute. We pin the first QR for
+// this long, then flip back to "waiting" so the admin can request a new one.
+const QR_VISIBLE_MS = 60_000;
 
 export interface BaileysSocketConfig {
   logger: Logger;
@@ -37,8 +40,12 @@ export async function createBaileysSocket(
 export interface ConnectionUpdateContext {
   qrState: RedisQrState;
   reconnect: () => Promise<void>;
+  disconnect: () => Promise<void>;
   sessionDir: string;
   logger: Logger;
+  // Set true once we've captured the first QR for this socket session.
+  // Subsequent QR emissions are ignored until the socket is torn down.
+  qrCaptured: { current: boolean };
 }
 
 export async function handleConnectionUpdate(
@@ -48,9 +55,22 @@ export async function handleConnectionUpdate(
   const { connection, lastDisconnect } = update;
 
   if (update.qr) {
+    if (ctx.qrCaptured.current) {
+      // Baileys mints a fresh QR every ~20s while unpaired. We ignore the
+      // refreshes so the user isn't chasing a moving target. After
+      // QR_VISIBLE_MS we tear the socket down and let the admin request a
+      // new code explicitly.
+      return;
+    }
+
+    ctx.qrCaptured.current = true;
     await ctx.qrState.setQrString(update.qr);
     await logTerminalQr(update.qr, ctx.logger);
     ctx.logger.info("QR ready — open the web admin page to scan");
+
+    setTimeout(() => {
+      void expireQr(ctx);
+    }, QR_VISIBLE_MS);
   }
 
   if (connection === "open") {
@@ -69,19 +89,47 @@ export async function handleConnectionUpdate(
     ?.output?.statusCode;
 
   if (statusCode === DisconnectReason.loggedOut) {
-    ctx.logger.warn("WhatsApp logged out from device — clearing session and re-pairing");
+    ctx.logger.warn("WhatsApp logged out from device — clearing session and waiting for QR request");
     try {
       await clearSessionDir(ctx.sessionDir);
     } catch (error) {
       ctx.logger.error("Failed to clear session directory", { error: String(error) });
     }
-    await ctx.reconnect();
+    // Don't auto-reconnect: we only mint a new QR when the admin asks.
+    return;
+  }
+
+  if (statusCode === DisconnectReason.connectionReplaced) {
+    // Another WhatsApp Web / Baileys session paired with the same number
+    // and stole this socket's slot. Reconnecting just bounces the other
+    // side and triggers an infinite kick-war. Stop and wait for the admin
+    // to either close the duplicate session or click "Regenerate QR".
+    ctx.logger.error(
+      "WhatsApp session was replaced by another login — stopping reconnects. " +
+        "Close any other WhatsApp Web tabs / Baileys instances using this " +
+        "number, then click Regenerate QR in the admin UI."
+    );
     return;
   }
 
   ctx.logger.warn("WhatsApp reconnecting...", { statusCode });
   await new Promise((resolve) => setTimeout(resolve, RECONNECT_DELAY_MS));
   await ctx.reconnect();
+}
+
+async function expireQr(ctx: ConnectionUpdateContext): Promise<void> {
+  const snapshot = await ctx.qrState.get();
+  if (snapshot.status !== "ready") return;
+
+  ctx.logger.info("QR expired — tearing down socket, waiting for new request");
+  try {
+    await ctx.disconnect();
+  } catch (error) {
+    ctx.logger.warn("Failed to tear down socket on QR expiry", {
+      error: String(error),
+    });
+  }
+  await ctx.qrState.setWaiting();
 }
 
 async function logTerminalQr(qr: string, logger: Logger): Promise<void> {

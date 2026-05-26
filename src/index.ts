@@ -116,14 +116,25 @@ async function bootstrap(): Promise<void> {
   });
 
   await whatsAppGateway.connect();
-  logger.info("WhatsApp gateway connecting — open the web admin to scan QR");
+  logger.info("WhatsApp gateway initialized");
+
+  // Listen for QR requests from the web admin. Use a dedicated subscriber
+  // connection — ioredis can't run subscribe alongside regular commands.
+  const qrSubscriber = createRedisClient(CONFIG.redisUrl, logger.child({ module: "qr-sub" }));
+  await qrSubscriber.subscribe("whatsapp:qr:request");
+  qrSubscriber.on("message", (channel) => {
+    if (channel !== "whatsapp:qr:request") return;
+    logger.info("QR request received from admin");
+    void (whatsAppGateway as BaileysGateway).requestQr();
+  });
 
   registerShutdownHandlers(
     prisma,
     redis,
     [inboundWorker, ingestWorker, outboundWorker],
     whatsAppGateway,
-    logger
+    logger,
+    qrSubscriber
   );
 }
 
@@ -132,13 +143,15 @@ function registerShutdownHandlers(
   redis: Redis,
   workers: Worker[],
   whatsAppGateway: WhatsAppGateway,
-  shutdownLogger: Logger
+  shutdownLogger: Logger,
+  qrSubscriber: Redis
 ): void {
   const shutdown = async (signal: string) => {
     shutdownLogger.info("Shutdown initiated", { signal });
 
     await Promise.all(workers.map((w) => w.close()));
     await whatsAppGateway.disconnect();
+    await qrSubscriber.quit();
     await prisma.$disconnect();
     await redis.quit();
 
@@ -153,4 +166,21 @@ function registerShutdownHandlers(
 bootstrap().catch((error) => {
   console.error("Fatal bootstrap error:", error);
   process.exit(1);
+});
+
+// Baileys runs encrypted-message retries on its own async queue. When the
+// socket has just been kicked (replaced / device_removed / 401), those
+// retries throw `Connection Closed` after our handler has already torn the
+// socket down. We log and swallow them so the process stays alive — the
+// admin can re-pair from the UI without `docker compose` restarting us.
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled promise rejection", {
+    reason: reason instanceof Error ? reason.stack ?? reason.message : String(reason),
+  });
+});
+
+process.on("uncaughtException", (error) => {
+  logger.error("Uncaught exception (kept process alive)", {
+    error: error.stack ?? error.message,
+  });
 });
