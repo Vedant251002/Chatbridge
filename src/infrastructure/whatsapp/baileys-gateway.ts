@@ -1,20 +1,25 @@
 import type { WASocket } from "@whiskeysockets/baileys";
 import type { Logger } from "../../domain/ports/logger.js";
-import type { WhatsAppGateway } from "../../domain/ports/whatsapp-gateway.js";
+import type { WhatsAppSender } from "../../domain/ports/whatsapp-sender.js";
 import type { InboundMessage } from "../../domain/entities/inbound-message.js";
 import { createSessionStore } from "./session-store.js";
 import { createBaileysSocket, handleConnectionUpdate } from "./connection.js";
-import { registerInboundListener } from "./listener.js";
+import { registerInboundListener, type InboundFromSocket } from "./listener.js";
 import { sendWhatsAppMessage } from "./sender.js";
 import type { RedisQrState } from "./qr-state.js";
 
 export interface BaileysGatewayConfig {
+  // Identifies the user that owns this socket. One Baileys process holds
+  // many gateways — one per signed-in user — keyed by userId.
+  userId: string;
   sessionDir: string;
   logger: Logger;
   qrState: RedisQrState;
 }
 
-export class BaileysGateway implements WhatsAppGateway {
+// Per-user WhatsApp gateway. Implements the narrower WhatsAppSender so
+// downstream code can send replies through it.
+export class BaileysGateway implements WhatsAppSender {
   private sock: WASocket | null = null;
   private inboundHandler: ((message: InboundMessage) => Promise<void>) | null = null;
   private listenerAttached = false;
@@ -79,6 +84,10 @@ export class BaileysGateway implements WhatsAppGateway {
     await sendWhatsAppMessage(this.sock, phoneOrJid, text, this.config.logger);
   }
 
+  isConnected(): boolean {
+    return this.sock !== null;
+  }
+
   async disconnect(): Promise<void> {
     const sock = this.sock;
     this.sock = null;
@@ -120,7 +129,14 @@ export class BaileysGateway implements WhatsAppGateway {
 
   private attachListener(): void {
     if (!this.sock || !this.inboundHandler || this.listenerAttached) return;
-    registerInboundListener(this.sock, this.inboundHandler, this.config.logger);
+    const handler = this.inboundHandler;
+    const userId = this.config.userId;
+    const onSocketMessage: InboundFromSocket = async (raw) => {
+      // Decorate the listener-shaped message with the owning user id so
+      // the downstream worker can route to per-user repos.
+      await handler({ ...raw, userId });
+    };
+    registerInboundListener(this.sock, onSocketMessage, this.config.logger);
     this.listenerAttached = true;
   }
 }

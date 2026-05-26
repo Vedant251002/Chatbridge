@@ -4,6 +4,9 @@ import { QueueError } from "../../utils/errors.js";
 import type { Logger } from "../../domain/ports/logger.js";
 
 export interface OutboundJob {
+  // The user whose WhatsApp socket should send this message. Required —
+  // the worker uses it to look up the right gateway in the manager.
+  userId: string;
   jid: string;
   text: string;
   conversationId?: string;

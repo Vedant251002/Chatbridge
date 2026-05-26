@@ -1,10 +1,21 @@
 import type { WASocket, proto } from "@whiskeysockets/baileys";
 import type { Logger } from "../../domain/ports/logger.js";
-import type { InboundMessage } from "../../domain/entities/inbound-message.js";
+
+// Shape emitted by the listener — userId is added later by the per-user
+// gateway before the message hits the queue/use case.
+export interface InboundFromSocketMessage {
+  phone: string;
+  jid: string;
+  text: string;
+  timestamp: number;
+  messageId: string;
+}
+
+export type InboundFromSocket = (message: InboundFromSocketMessage) => Promise<void>;
 
 export function registerInboundListener(
   sock: WASocket,
-  onMessage: (message: InboundMessage) => Promise<void>,
+  onMessage: InboundFromSocket,
   logger: Logger
 ): void {
   sock.ev.on("messages.upsert", async ({ messages }) => {
@@ -25,7 +36,7 @@ export function registerInboundListener(
   });
 }
 
-function toInboundMessage(raw: proto.IWebMessageInfo): InboundMessage | null {
+function toInboundMessage(raw: proto.IWebMessageInfo): InboundFromSocketMessage | null {
   const text = raw.message?.conversation ?? raw.message?.extendedTextMessage?.text;
   if (!text) return null;
   if (raw.key.fromMe) return null;

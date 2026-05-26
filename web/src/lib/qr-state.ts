@@ -7,14 +7,24 @@ export interface QrSnapshot {
   qrString: string | null;
 }
 
-const KEY_STATUS = "whatsapp:qr:status";
-const KEY_QR = "whatsapp:qr:string";
+function statusKey(userId: string): string {
+  return `whatsapp:qr:${userId}:status`;
+}
 
-// Read-only on this side. The Baileys backend writes; the web app reads.
-export async function getQrSnapshot(): Promise<QrSnapshot> {
-  const [status, qr] = await redis.mget(KEY_STATUS, KEY_QR);
+function qrKey(userId: string): string {
+  return `whatsapp:qr:${userId}:string`;
+}
+
+// Read-only on this side. The Baileys backend writes; the web app reads,
+// scoped to the signed-in user.
+export async function getQrSnapshot(userId: string): Promise<QrSnapshot> {
+  const [status, qr] = await redis.mget(statusKey(userId), qrKey(userId));
   return {
     status: (status as QrStatus | null) ?? "waiting",
     qrString: qr ?? null,
   };
+}
+
+export function qrRequestChannel(userId: string): string {
+  return `whatsapp:qr:request:${userId}`;
 }

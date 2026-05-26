@@ -1,17 +1,27 @@
 import { NextRequest } from "next/server";
 import { fail, handleError, ok } from "@/lib/api-helpers";
 import { sendMessageSchema } from "@/lib/validators";
-import { enqueueAdminInitiated } from "@/lib/queue";
+import { enqueueOutbound, phoneToJid } from "@/lib/queue";
+import { requireUser, UnauthorizedError } from "@/lib/auth";
 
-// Async by design: enqueues a job that the Baileys backend processes.
-// We return 202 with the job id; the actual reply is delivered via WhatsApp
-// and stored in the messages table.
+// Admin-initiated outbound message. The backend's outbound worker resolves
+// the user's WhatsApp socket and delivers it. Async by design — returns 202.
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser();
     const body = sendMessageSchema.parse(await request.json());
-    const jobId = await enqueueAdminInitiated({ phone: body.phone, text: body.message });
-    return ok({ jobId, status: "queued" });
+
+    await enqueueOutbound({
+      userId: user.id,
+      jid: phoneToJid(body.phone),
+      text: body.message,
+    });
+
+    return ok({ status: "queued" }, { status: 202 });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return fail(401, "UNAUTHORIZED", "Not signed in");
+    }
     if (error instanceof SyntaxError) {
       return fail(400, "VALIDATION_ERROR", "Invalid JSON body");
     }

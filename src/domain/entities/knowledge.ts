@@ -3,6 +3,7 @@ export type KnowledgeStatus = "pending" | "processing" | "ready" | "failed";
 
 export interface KnowledgeDocument {
   id: string;
+  userId: string;
   title: string;
   sourceType: KnowledgeSourceType;
   sourceUrl: string | null;

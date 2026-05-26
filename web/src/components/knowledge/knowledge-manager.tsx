@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { confirmDialog } from "../confirm-dialog";
 import { showToast, ToastHost } from "../toast";
 import { UploadForm } from "./upload-form";
 import type { KnowledgeDocument } from "./types";
@@ -27,7 +28,13 @@ export function KnowledgeManager() {
   }, [reload]);
 
   const remove = async (id: string) => {
-    if (!confirm("Delete this document and all its chunks?")) return;
+    const ok = await confirmDialog({
+      title: "Delete document?",
+      message: "This document and all of its indexed chunks will be permanently removed. This action cannot be undone.",
+      confirmLabel: "Delete",
+      variant: "danger",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/knowledge/${id}`, { method: "DELETE" });
     const json = await res.json();
     if (!json.success) {

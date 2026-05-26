@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { fail, handleError, ok } from "@/lib/api-helpers";
 import { enqueueIngest } from "@/lib/queue";
 import { PDFParse } from "pdf-parse";
+import { requireUser, UnauthorizedError } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20 MB
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser();
     const form = await request.formData();
     const file = form.get("file");
     const titleRaw = form.get("title");
@@ -47,6 +49,7 @@ export async function POST(request: NextRequest) {
 
     const doc = await prisma.knowledgeDocument.create({
       data: {
+        userId: user.id,
         title,
         sourceType: "text",
         sourceUrl: null,
@@ -58,6 +61,9 @@ export async function POST(request: NextRequest) {
     await enqueueIngest(doc.id);
     return ok(doc, { status: 202 });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return fail(401, "UNAUTHORIZED", "Not signed in");
+    }
     return handleError(error);
   }
 }

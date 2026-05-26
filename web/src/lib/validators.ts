@@ -32,6 +32,20 @@ export const togglePauseSchema = z.object({
   paused: z.boolean(),
 });
 
+export const registerSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email"),
+  name: z.string().trim().min(1, "Name is required").max(100),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(200, "Password is too long"),
+});
+
+export const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email"),
+  password: z.string().min(1, "Password is required").max(200),
+});
+
 export const knowledgeUploadSchema = z.discriminatedUnion("sourceType", [
   z.object({
     sourceType: z.literal("text"),

@@ -1,18 +1,20 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { handleError, ok } from "@/lib/api-helpers";
+import { fail, handleError, ok } from "@/lib/api-helpers";
 import { paginationSchema } from "@/lib/validators";
+import { requireUser, UnauthorizedError } from "@/lib/auth";
 
 // Returns conversations ordered by most recent activity (HITL inbox order).
-// Each row includes the last message preview and unread count proxy
-// (count of inbound user messages with no reply after them).
+// Scoped to the signed-in user — only their conversations come back.
 export async function GET(request: NextRequest) {
   try {
+    const user = await requireUser();
     const params = Object.fromEntries(request.nextUrl.searchParams);
     const { limit, offset } = paginationSchema.parse(params);
 
     const [rows, total] = await prisma.$transaction([
       prisma.conversation.findMany({
+        where: { userId: user.id },
         orderBy: { lastActivityAt: "desc" },
         take: limit,
         skip: offset,
@@ -24,7 +26,7 @@ export async function GET(request: NextRequest) {
           },
         },
       }),
-      prisma.conversation.count(),
+      prisma.conversation.count({ where: { userId: user.id } }),
     ]);
 
     const conversations = rows.map((row) => ({
@@ -47,6 +49,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return fail(401, "UNAUTHORIZED", "Not signed in");
+    }
     return handleError(error);
   }
 }

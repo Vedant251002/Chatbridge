@@ -32,7 +32,9 @@ export interface ProcessInboundMessageDeps {
   aiProvider: AiProvider;
   botConfigRepo: BotConfigRepository;
   allowedNumberRepo: AllowedNumberRepository;
-  whatsAppSender: WhatsAppSender;
+  // Returns the sender for the user that owns the inbound message. Returns
+  // null if the user's WhatsApp socket isn't currently connected.
+  getSender: (userId: string) => WhatsAppSender | null;
   realtime: RealtimePublisher;
   retrieveKnowledge: RetrieveKnowledge;
   logger: Logger;
@@ -48,7 +50,7 @@ export class ProcessInboundMessage {
       aiProvider,
       botConfigRepo,
       allowedNumberRepo,
-      whatsAppSender,
+      getSender,
       realtime,
       retrieveKnowledge,
       logger,
@@ -58,7 +60,11 @@ export class ProcessInboundMessage {
     const threadId = buildThreadId(phone);
 
     try {
-      const { conversation } = await conversationRepo.findOrCreate(phone, threadId);
+      const { conversation } = await conversationRepo.findOrCreate(
+        input.userId,
+        phone,
+        threadId
+      );
 
       const history = await messageRepo.findByConversationId(conversation.id);
 
@@ -83,9 +89,8 @@ export class ProcessInboundMessage {
         return;
       }
 
-      // ─── Allowlist gate: AI replies only to listed phones. ─────────────
-      // Empty allowlist = AI is silent for everyone.
-      const allowed = await allowedNumberRepo.isAllowed(phone);
+      // ─── Allowlist gate: AI replies only to listed phones (per user). ─
+      const allowed = await allowedNumberRepo.isAllowed(input.userId, phone);
       if (!allowed) {
         logger.info("Phone not in allowlist, skipping AI reply", {
           conversationId: conversation.id,
@@ -96,8 +101,8 @@ export class ProcessInboundMessage {
       }
 
       // ─── RAG: ground the system prompt in retrieved chunks ──────────────
-      const retrieved = await retrieveKnowledge.execute(input.text);
-      const config = await botConfigRepo.getActive();
+      const retrieved = await retrieveKnowledge.execute(input.userId, input.text);
+      const config = await botConfigRepo.getActive(input.userId);
       const systemPrompt = composeSystemPromptWithContext(
         config?.prompt ?? null,
         retrieved
@@ -154,7 +159,15 @@ export class ProcessInboundMessage {
         messageId: assistantMsg.id,
       });
 
-      await whatsAppSender.sendMessage(input.jid, reply);
+      const sender = getSender(input.userId);
+      if (sender) {
+        await sender.sendMessage(input.jid, reply);
+      } else {
+        logger.warn("No active WhatsApp socket for user — reply persisted but not sent", {
+          userId: input.userId,
+          conversationId: conversation.id,
+        });
+      }
     } catch (error) {
       if (error instanceof DatabaseError) throw error;
       logger.error("Unhandled error in inbound processing", { error: String(error) });

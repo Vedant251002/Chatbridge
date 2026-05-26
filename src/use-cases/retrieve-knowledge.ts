@@ -19,6 +19,7 @@ export class RetrieveKnowledge {
   constructor(private readonly deps: RetrieveKnowledgeDeps) {}
 
   async execute(
+    userId: string,
     query: string,
     topK: number = DEFAULT_TOP_K,
     threshold: number = DEFAULT_SIMILARITY_THRESHOLD
@@ -29,7 +30,7 @@ export class RetrieveKnowledge {
 
     try {
       const embedding = await embedder.embed(trimmed);
-      const results = await knowledgeRepo.searchSimilar(embedding, topK, threshold);
+      const results = await knowledgeRepo.searchSimilar(userId, embedding, topK, threshold);
       logger.debug("RAG retrieved", { count: results.length, topK, threshold });
       return results;
     } catch (error) {

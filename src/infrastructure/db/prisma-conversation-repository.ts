@@ -14,15 +14,16 @@ export class PrismaConversationRepository implements ConversationRepository {
     }
   }
 
-  async list(limit: number, offset: number): Promise<ConversationPage> {
+  async list(userId: string, limit: number, offset: number): Promise<ConversationPage> {
     try {
       const [conversations, total] = await this.db.$transaction([
         this.db.conversation.findMany({
+          where: { userId },
           orderBy: { lastActivityAt: "desc" },
           take: limit,
           skip: offset,
         }),
-        this.db.conversation.count(),
+        this.db.conversation.count({ where: { userId } }),
       ]);
       return { conversations: conversations as Conversation[], total };
     } catch (error) {
@@ -31,18 +32,20 @@ export class PrismaConversationRepository implements ConversationRepository {
   }
 
   async findOrCreate(
+    userId: string,
     phone: string,
     threadId: string
   ): Promise<{ conversation: Conversation; isNew: boolean }> {
     try {
-      const existing = await this.db.conversation.findFirst({
-        where: { phone },
-        orderBy: { createdAt: "desc" },
+      // Composite unique on (user_id, phone) means each user keeps a
+      // separate thread for the same external phone number.
+      const existing = await this.db.conversation.findUnique({
+        where: { userId_phone: { userId, phone } },
       });
       if (existing) return { conversation: existing as Conversation, isNew: false };
 
       const created = await this.db.conversation.create({
-        data: { phone, threadId },
+        data: { userId, phone, threadId },
       });
       return { conversation: created as Conversation, isNew: true };
     } catch (error) {

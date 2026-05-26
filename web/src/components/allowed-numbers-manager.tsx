@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { confirmDialog } from "./confirm-dialog";
 import { showToast, ToastHost } from "./toast";
 
 interface AllowedNumber {
@@ -65,7 +66,13 @@ export function AllowedNumbersManager() {
   };
 
   const remove = async (id: string, displayPhone: string) => {
-    if (!confirm(`Remove ${displayPhone} from allowlist?`)) return;
+    const ok = await confirmDialog({
+      title: "Remove number?",
+      message: `${displayPhone} will be removed from your allowlist. The AI will stop replying to this number.`,
+      confirmLabel: "Remove",
+      variant: "danger",
+    });
+    if (!ok) return;
     try {
       const res = await fetch(`/api/allowed-numbers/${id}`, { method: "DELETE" });
       const json = await res.json();
@@ -85,8 +92,8 @@ export function AllowedNumbersManager() {
       <div className="card">
         <h2>Allowed numbers</h2>
         <p className="hint">
-          The AI replies only to numbers on this list. If empty, the AI stays
-          silent and all messages wait for a manual reply in Live chat.
+          The AI replies only to numbers you have added here. Each user keeps
+          their own list — what you add isn&apos;t visible to other admins.
         </p>
 
         <form onSubmit={add} className="row" style={{ flexWrap: "wrap", gap: 8 }}>

@@ -1,0 +1,13 @@
+# Plain HTTP on :80 — no domain, no basic auth.
+:80 {
+    encode gzip
+
+    reverse_proxy web:3000 {
+        # SSE keeps the connection open — disable buffering and bump timeouts.
+        flush_interval -1
+        transport http {
+            response_header_timeout 24h
+            read_timeout 24h
+        }
+    }
+}

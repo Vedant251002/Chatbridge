@@ -990,3 +990,382 @@ ol li:hover { color: var(--text); }
   color: var(--muted);
   margin-top: 2px;
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   Auth — login page + user menu in nav
+   ───────────────────────────────────────────────────────────────── */
+.login-page {
+  min-height: calc(100vh - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  animation: fade-up var(--dur-slow) var(--ease-out) both;
+}
+.login-card {
+  max-width: 440px;
+  width: 100%;
+  text-align: center;
+  padding: 36px 32px;
+}
+.login-card h1 {
+  font-size: 28px;
+  margin: 12px 0 8px;
+  background: var(--grad-hero);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-shift 10s var(--ease-in-out) infinite;
+}
+.login-card .pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.login-card .pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.18);
+}
+.login-error {
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+  font-size: 13px;
+}
+
+.auth-form {
+  margin-top: 22px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.auth-form button[type="submit"] {
+  margin-top: 8px;
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+}
+.auth-form .field { margin-bottom: 10px; }
+.login-card a {
+  color: var(--blue);
+  text-decoration: none;
+  font-weight: 600;
+}
+.login-card a:hover { text-decoration: underline; }
+
+/* User chip + popover */
+.nav-spacer { flex: 1; }
+.user-menu { position: relative; }
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  background: var(--subtle);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+}
+.user-chip:hover { background: #fff; border-color: var(--border-strong); transform: none; }
+.user-chip:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.user-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  object-fit: cover;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.user-avatar.fallback {
+  background: var(--grad-primary);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+}
+.user-name {
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 220px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 12px;
+  z-index: 40;
+  animation: pop-in var(--dur) var(--ease-out) both;
+}
+.user-popover-head {
+  padding: 4px 6px 10px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.user-popover-name { font-weight: 700; font-size: 14px; }
+.user-popover-email { color: var(--muted); font-size: 12px; margin-top: 2px; word-break: break-all; }
+.user-popover-action { width: 100%; }
+
+@media (max-width: 760px) {
+  .user-name { display: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Form polish — inputs, selects, textareas, file pickers
+   (extends the base controls above with floating focus, gradient
+    rings and friendlier states)
+   ───────────────────────────────────────────────────────────────── */
+input[type="text"],
+input[type="url"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="search"],
+input[type="number"],
+textarea,
+select {
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(135deg, rgba(16, 185, 129, 0.0), rgba(59, 130, 246, 0.0)) border-box;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+input[type="text"]::placeholder,
+input[type="url"]::placeholder,
+input[type="email"]::placeholder,
+input[type="password"]::placeholder,
+input[type="tel"]::placeholder,
+input[type="search"]::placeholder,
+input[type="number"]::placeholder,
+textarea::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+  transition: color var(--dur) var(--ease-out);
+}
+input:focus::placeholder,
+textarea:focus::placeholder { color: #cbd5e1; }
+
+input[type="text"]:focus,
+input[type="url"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="tel"]:focus,
+input[type="search"]:focus,
+input[type="number"]:focus,
+textarea:focus,
+select:focus {
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(135deg, var(--green) 0%, var(--blue) 100%) border-box;
+  border-color: transparent;
+  box-shadow:
+    0 0 0 4px rgba(16, 185, 129, 0.14),
+    0 6px 18px -10px rgba(16, 185, 129, 0.45);
+}
+
+input[disabled],
+textarea[disabled],
+select[disabled] {
+  background: var(--subtle);
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+input[type="email"]:not(:placeholder-shown):invalid,
+input[type="url"]:not(:placeholder-shown):invalid,
+input[type="tel"]:not(:placeholder-shown):invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+}
+
+/* File picker — friendlier gradient button */
+input[type="file"]::file-selector-button {
+  background: linear-gradient(135deg, #ecfdf5, #e0f2fe);
+  color: #065f46;
+  border-color: #a7f3d0;
+  font-weight: 600;
+}
+input[type="file"]::file-selector-button:hover {
+  background: linear-gradient(135deg, #d1fae5, #bae6fd);
+  border-color: #6ee7b7;
+}
+
+/* Form layout — keep `.field` blocks consistently spaced without
+   forcing a column flex on the form itself (some forms use `.row`). */
+.card .field + .field { margin-top: 4px; }
+.row > button { min-width: 96px; }
+
+/* Field label — small accent dot on focus-within */
+.field { position: relative; }
+.field:focus-within > label {
+  color: var(--green-dark);
+}
+.field:focus-within > label::after {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--green);
+  margin-left: 6px;
+  vertical-align: middle;
+  animation: pulse-ring 1.6s var(--ease-out) infinite;
+}
+
+/* Auth form — give the email/password fields the same polish */
+.auth-form input { padding: 12px 14px; font-size: 14px; }
+
+/* Allow-list form — stack input + label nicely on mobile */
+@media (max-width: 480px) {
+  .allow-item { flex-wrap: wrap; gap: 8px; }
+  .allow-item button { width: 100%; }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Confirm dialog (popup replacing window.confirm)
+   ───────────────────────────────────────────────────────────────── */
+@keyframes confirm-backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0); }
+  to   { opacity: 1; backdrop-filter: blur(8px); }
+}
+@keyframes confirm-card-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: confirm-backdrop-in var(--dur) var(--ease-out) both;
+}
+
+.confirm-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 24px 20px;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  animation: confirm-card-in var(--dur-slow) var(--ease-out) both;
+  position: relative;
+  overflow: hidden;
+}
+.confirm-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 4px;
+  background: var(--grad-warm);
+}
+.confirm-card.confirm-warning::before { background: var(--grad-warm); }
+.confirm-card.confirm-primary::before { background: var(--grad-primary); }
+.confirm-card.confirm-danger::before {
+  background: linear-gradient(135deg, var(--red) 0%, var(--red-dark) 100%);
+}
+
+.confirm-icon {
+  width: 56px;
+  height: 56px;
+  margin: 4px auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 26px;
+  font-weight: 800;
+  color: #fff;
+  box-shadow:
+    0 12px 24px -8px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  animation: pop-in var(--dur-slow) var(--ease-out) both;
+}
+.confirm-danger .confirm-icon {
+  background: linear-gradient(135deg, var(--red), var(--red-dark));
+  box-shadow:
+    0 0 0 6px rgba(239, 68, 68, 0.12),
+    0 12px 24px -8px rgba(239, 68, 68, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.confirm-warning .confirm-icon {
+  background: var(--grad-warm);
+  box-shadow:
+    0 0 0 6px rgba(245, 158, 11, 0.14),
+    0 12px 24px -8px rgba(245, 158, 11, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.confirm-primary .confirm-icon {
+  background: var(--grad-primary);
+  box-shadow:
+    0 0 0 6px rgba(16, 185, 129, 0.14),
+    0 12px 24px -8px rgba(16, 185, 129, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.confirm-title {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.confirm-message {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.confirm-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.confirm-actions button { min-width: 120px; }
+
+@media (max-width: 420px) {
+  .confirm-card { padding: 20px 18px; }
+  .confirm-actions { flex-direction: column-reverse; }
+  .confirm-actions button { width: 100%; }
+}

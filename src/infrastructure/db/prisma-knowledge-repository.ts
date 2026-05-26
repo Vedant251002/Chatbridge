@@ -24,6 +24,7 @@ export class PrismaKnowledgeRepository implements KnowledgeRepository {
     try {
       const created = await this.db.knowledgeDocument.create({
         data: {
+          userId: input.userId,
           title: input.title,
           sourceType: input.sourceType,
           sourceUrl: input.sourceUrl,
@@ -37,9 +38,10 @@ export class PrismaKnowledgeRepository implements KnowledgeRepository {
     }
   }
 
-  async listDocuments(): Promise<KnowledgeDocument[]> {
+  async listDocuments(userId: string): Promise<KnowledgeDocument[]> {
     try {
       const rows = await this.db.knowledgeDocument.findMany({
+        where: { userId },
         orderBy: { createdAt: "desc" },
       });
       return rows as KnowledgeDocument[];
@@ -125,13 +127,15 @@ export class PrismaKnowledgeRepository implements KnowledgeRepository {
   }
 
   async searchSimilar(
+    userId: string,
     embedding: number[],
     topK: number,
     threshold: number
   ): Promise<RetrievedChunk[]> {
     try {
       // Cosine distance: 1 - (embedding <=> query). Lower distance = closer.
-      // We compute similarity = 1 - distance for the consumer.
+      // Tenant isolation: the join filters chunks by document.user_id so a
+      // user can never retrieve another user's content even with a crafted query.
       const literal = toVectorLiteral(embedding);
       const rows = await this.db.$queryRaw<
         Array<{
@@ -152,7 +156,8 @@ export class PrismaKnowledgeRepository implements KnowledgeRepository {
           1 - (c."embedding" <=> ${literal}::vector) AS "similarity"
         FROM "knowledge_chunks" c
         JOIN "knowledge_documents" d ON d."id" = c."document_id"
-        WHERE d."status" = 'ready'
+        WHERE d."user_id" = ${userId}::uuid
+          AND d."status" = 'ready'
           AND c."embedding" IS NOT NULL
           AND 1 - (c."embedding" <=> ${literal}::vector) >= ${threshold}
         ORDER BY c."embedding" <=> ${literal}::vector ASC

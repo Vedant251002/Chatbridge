@@ -26,7 +26,11 @@ export class BullMqMessagePublisher implements MessagePublisher {
         removeOnComplete: QUEUE_OPTIONS.removeOnComplete,
         removeOnFail: QUEUE_OPTIONS.removeOnFail,
       });
-      this.logger.debug("Message enqueued", { jobId: job.id, phone: message.phone });
+      this.logger.debug("Message enqueued", {
+        jobId: job.id,
+        userId: message.userId,
+        phone: message.phone,
+      });
     } catch (error) {
       throw new QueueError("Failed to enqueue inbound message", error);
     }

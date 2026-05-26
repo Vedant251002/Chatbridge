@@ -119,11 +119,21 @@ web/src/
 - Sources used are stored on the message and rendered as small badges under the bot reply (`document title #ordinal (similarity %)`).
 - Mock embedder lets the pipeline run end-to-end offline without an API key.
 
-### 3. Phone number allowlist
-- The AI replies **only** to numbers explicitly added to the allowlist on the Setup page. An empty list means the AI stays silent for everyone — messages still land in the inbox for an agent to handle manually.
+### 3. Phone number allowlist (per user)
+- The AI replies **only** to numbers the signed-in admin has explicitly added. An empty list means the bot stays silent for everyone — messages still land in that admin's inbox for them to handle manually.
+- Each admin keeps their **own** private allowlist. You only see, edit, and gate replies against the numbers you added.
 - Add or remove numbers from the **Allowed numbers** card on `/`. Each entry can carry an optional label (e.g. "Customer", "QA tester").
 - Matching is digits-only with smart suffix comparison, so `+91 91046 24966`, `919104624966`, and `+919104624966` all collide on the same identity. No need to worry about formatting at save-time.
 - WhatsApp's new privacy-preserving identity (LID) is resolved automatically: when a sender's JID is `@lid`, the listener reads the real phone number from `senderPn` on the message key, so allowlist matching keeps working.
+
+### 4. Multi-tenant admin accounts (full data isolation)
+- Sign up at `/register` and sign in at `/login`. Each admin runs their own private bot.
+- **Each user has their own everything**: their own WhatsApp pairing (separate QR), their own conversations and chat history, their own knowledge base, their own bot prompt, and their own allowlist. No user can see or affect another user's data.
+- The Baileys backend keeps one socket per user (`sessions/<userId>/`) and routes inbound messages, RAG retrieval, and outbound replies through per-user tenancy guards.
+- Passwords are hashed with `scrypt` (node stdlib, salted, memory-hard) and never stored in plaintext.
+- Sessions are opaque random tokens, hashed (SHA-256) before storage, set as `HttpOnly` `SameSite=Lax` cookies, and expire after 30 days.
+- Middleware blocks every page and API route except `/login`, `/register`, `/api/auth/*`, and `/api/health`. Anonymous API hits get a 401; anonymous page hits get redirected to `/login?next=…`.
+- Tenancy is enforced at the database layer: every domain row has a `user_id` foreign key, every API query filters by the signed-in user, and the RAG SQL search joins on `documents.user_id` so a crafted query can never surface another user's chunks.
 
 ## Prerequisites
 

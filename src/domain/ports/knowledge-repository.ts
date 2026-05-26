@@ -5,6 +5,7 @@ import type {
 } from "../entities/knowledge.js";
 
 export interface CreateKnowledgeDocumentInput {
+  userId: string;
   title: string;
   sourceType: KnowledgeDocument["sourceType"];
   sourceUrl: string | null;
@@ -21,7 +22,7 @@ export interface InsertKnowledgeChunkInput {
 
 export interface KnowledgeRepository {
   createDocument(input: CreateKnowledgeDocumentInput): Promise<KnowledgeDocument>;
-  listDocuments(): Promise<KnowledgeDocument[]>;
+  listDocuments(userId: string): Promise<KnowledgeDocument[]>;
   getDocument(id: string): Promise<KnowledgeDocument | null>;
   deleteDocument(id: string): Promise<void>;
   updateDocumentStatus(
@@ -32,5 +33,12 @@ export interface KnowledgeRepository {
 
   // Chunks: replace-all semantics (delete then bulk insert) for re-indexing.
   replaceChunks(documentId: string, chunks: InsertKnowledgeChunkInput[]): Promise<void>;
-  searchSimilar(embedding: number[], topK: number, threshold: number): Promise<RetrievedChunk[]>;
+
+  // Per-user search — only returns chunks from the calling user's documents.
+  searchSimilar(
+    userId: string,
+    embedding: number[],
+    topK: number,
+    threshold: number
+  ): Promise<RetrievedChunk[]>;
 }

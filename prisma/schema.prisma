@@ -9,16 +9,49 @@ datasource db {
   extensions = [vector]
 }
 
+model User {
+  id              String              @id @default(uuid()) @db.Uuid
+  email           String              @unique
+  name            String?
+  avatarUrl       String?             @map("avatar_url")
+  passwordHash    String              @map("password_hash")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  sessions        Session[]
+  allowedNumbers  AllowedNumber[]
+  conversations   Conversation[]
+  knowledgeDocs   KnowledgeDocument[]
+  botConfig       BotConfig?
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
 model Conversation {
   id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
   phone          String    @db.VarChar(20)
   threadId       String    @map("thread_id")
   aiPaused       Boolean   @default(false) @map("ai_paused")
   takenOverBy    String?   @map("taken_over_by")
   lastActivityAt DateTime  @default(now()) @map("last_activity_at")
   createdAt      DateTime  @default(now()) @map("created_at")
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages       Message[]
 
+  @@unique([userId, phone])
+  @@index([userId])
   @@index([phone])
   @@index([lastActivityAt(sort: Desc)])
   @@map("conversations")
@@ -38,20 +71,26 @@ model Message {
 }
 
 model BotConfig {
-  id        String   @id @default("default")
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
   prompt    String   @db.Text
   updatedAt DateTime @updatedAt @map("updated_at")
   createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("bot_configs")
 }
 
 model AllowedNumber {
   id        String   @id @default(uuid()) @db.Uuid
-  phone     String   @unique @db.VarChar(20)
+  userId    String   @map("user_id") @db.Uuid
+  phone     String   @db.VarChar(20)
   label     String?
   createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, phone])
+  @@index([userId])
   @@map("allowed_numbers")
 }
 
@@ -74,6 +113,7 @@ enum KnowledgeSourceType {
 
 model KnowledgeDocument {
   id          String              @id @default(uuid()) @db.Uuid
+  userId      String              @map("user_id") @db.Uuid
   title       String
   sourceType  KnowledgeSourceType @map("source_type")
   sourceUrl   String?             @map("source_url")
@@ -83,8 +123,10 @@ model KnowledgeDocument {
   chunkCount  Int                 @default(0) @map("chunk_count")
   createdAt   DateTime            @default(now()) @map("created_at")
   updatedAt   DateTime            @updatedAt @map("updated_at")
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   chunks      KnowledgeChunk[]
 
+  @@index([userId])
   @@index([status])
   @@index([createdAt(sort: Desc)])
   @@map("knowledge_documents")
