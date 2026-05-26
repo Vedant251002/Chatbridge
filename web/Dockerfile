@@ -36,6 +36,11 @@ COPY --from=build /app/prisma ./prisma
 # Standalone strips Prisma engines from node_modules; ship them explicitly.
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+# pdf-parse lazily requires @napi-rs/canvas at runtime — the tracer misses it,
+# so copy the package + native binary into the runtime image manually.
+COPY --from=build /app/node_modules/@napi-rs ./node_modules/@napi-rs
+COPY --from=build /app/node_modules/pdf-parse ./node_modules/pdf-parse
+COPY --from=build /app/node_modules/pdfjs-dist ./node_modules/pdfjs-dist
 
 EXPOSE 3000
 CMD ["node", "server.js"]
