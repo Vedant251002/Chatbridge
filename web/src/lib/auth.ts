@@ -83,9 +83,19 @@ export async function createSession(userId: string): Promise<string> {
 
 export async function setSessionCookie(token: string): Promise<void> {
   const jar = await cookies();
+  // Only mark `Secure` when the deployment is actually HTTPS. In production
+  // we may sit behind a plain-HTTP reverse proxy (e.g. an EC2 box on :80
+  // before TLS is set up), and browsers drop Secure cookies on HTTP origins.
+  // COOKIE_SECURE=false in .env disables it explicitly.
+  const cookieSecure =
+    process.env.COOKIE_SECURE === "true" ||
+    (process.env.COOKIE_SECURE !== "false" &&
+      process.env.NODE_ENV === "production" &&
+      process.env.PUBLIC_URL?.startsWith("https://") === true);
+
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure,
     sameSite: "lax",
     path: "/",
     maxAge: SESSION_TTL_DAYS * 24 * 60 * 60,
