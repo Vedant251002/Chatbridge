@@ -1,0 +1,21 @@
+# Replace the placeholder host with your domain (e.g. bot.example.com).
+# Caddy auto-issues Let's Encrypt certs on first request.
+{$DOMAIN} {
+    encode gzip
+
+    # Lock the admin UI behind basic auth. Generate a hash with:
+    #   docker run --rm caddy:2-alpine caddy hash-password
+    # then set ADMIN_USER and ADMIN_PASSWORD_HASH in .env.
+    basic_auth {
+        {$ADMIN_USER} {$ADMIN_PASSWORD_HASH}
+    }
+
+    reverse_proxy web:3000 {
+        # SSE keeps the connection open — disable buffering and bump timeouts.
+        flush_interval -1
+        transport http {
+            response_header_timeout 24h
+            read_timeout 24h
+        }
+    }
+}

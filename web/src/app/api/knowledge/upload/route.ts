@@ -2,13 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { fail, handleError, ok } from "@/lib/api-helpers";
 import { enqueueIngest } from "@/lib/queue";
-
-// pdf-parse ships with a CJS index that does test-mode init when require'd
-// without args; we bypass that by importing the lib path directly.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse/lib/pdf-parse.js") as (
-  buf: Buffer
-) => Promise<{ text: string; numpages: number }>;
+import { PDFParse } from "pdf-parse";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,8 +29,13 @@ export async function POST(request: NextRequest) {
 
     let text = "";
     if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-      const parsed = await pdfParse(buf);
-      text = parsed.text;
+      const parser = new PDFParse({ data: buf });
+      try {
+        const result = await parser.getText();
+        text = result.text;
+      } finally {
+        await parser.destroy();
+      }
     } else {
       // Treat anything else as text (markdown, txt, etc.)
       text = buf.toString("utf-8");
