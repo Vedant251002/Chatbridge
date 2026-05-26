@@ -1,0 +1,12 @@
+FROM node:20-alpine
+WORKDIR /app
+RUN apk add --no-cache openssl
+COPY package*.json ./
+RUN npm install
+COPY tsconfig.json next.config.mjs next-env.d.ts ./
+COPY src ./src
+EXPOSE 3000
+# Prisma schema is mounted from the host (./prisma → /app/prisma) by
+# docker-compose, so we generate the client at startup instead of at build
+# time. This avoids the symlink-follow issue with web/prisma → ../prisma.
+CMD ["sh", "-c", "npx prisma generate && npm run dev"]

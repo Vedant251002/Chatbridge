@@ -1,0 +1,172 @@
+{
+  "info": {
+    "name": "WhatsApp AI Assessment API",
+    "description": "API collection for the WhatsApp AI Assessment Platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "conversationId",
+      "value": "",
+      "type": "string",
+      "description": "Set this after calling GET /conversations"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & Auth",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health",
+            "description": "Check if the server is running"
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"status\": \"ok\",\n  \"timestamp\": \"2026-05-22T00:00:00.000Z\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "WhatsApp QR Code",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/qr",
+            "description": "Open in a browser to scan the WhatsApp QR code. Returns an HTML page that auto-refreshes. Shows a QR image when ready, a spinner while waiting, and a success message when connected."
+          },
+          "response": [
+            {
+              "name": "QR ready (HTML)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "text/html" }],
+              "body": "<!-- HTML page with QR code image. Open in browser, not Postman. -->"
+            },
+            {
+              "name": "Already connected (HTML)",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "text/html" }],
+              "body": "<!-- HTML page showing WhatsApp Connected confirmation -->"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/send-message",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+919999999999\",\n  \"message\": \"Hello, I need help with my assessment\"\n}",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "description": "Send a WhatsApp message to a phone number. The platform sends the message and returns the AI-generated reply."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"conversationId\": \"550e8400-e29b-41d4-a716-446655440000\",\n    \"messageId\": \"660e8400-e29b-41d4-a716-446655440001\",\n    \"aiReply\": \"Hello! I'm here to help with your assessment.\"\n  }\n}"
+            },
+            {
+              "name": "400 Validation Error",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": {\n    \"code\": \"VALIDATION_ERROR\",\n    \"message\": \"Validation failed\",\n    \"fields\": {\n      \"phone\": [\"Invalid phone number format\"],\n      \"message\": [\"Message cannot be empty\"]\n    }\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Conversations",
+      "item": [
+        {
+          "name": "List Conversations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/conversations?limit=50&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["conversations"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": "Number of results (max 200, default 50)"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Pagination offset (default 0)"
+                }
+              ]
+            },
+            "description": "Get all conversations with pagination"
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"phone\": \"+919999999999\",\n      \"threadId\": \"thread_4226a656_+919999999999\",\n      \"createdAt\": \"2026-05-22T00:00:00.000Z\"\n    }\n  ],\n  \"pagination\": {\n    \"total\": 1,\n    \"limit\": 50,\n    \"offset\": 0,\n    \"hasMore\": false\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get Messages by Conversation",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/messages/{{conversationId}}",
+            "description": "Get all messages for a specific conversation. Set the conversationId variable first."
+          },
+          "response": [
+            {
+              "name": "200 Success",
+              "status": "OK",
+              "code": 200,
+              "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": \"aaa-111\",\n      \"conversationId\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"sender\": \"user\",\n      \"message\": \"Hello, I need help with my assessment\",\n      \"aiOutput\": null,\n      \"createdAt\": \"2026-05-22T00:00:00.000Z\"\n    },\n    {\n      \"id\": \"bbb-222\",\n      \"conversationId\": \"550e8400-e29b-41d4-a716-446655440000\",\n      \"sender\": \"assistant\",\n      \"message\": \"Hello! I'm here to help with your assessment.\",\n      \"aiOutput\": {\n        \"id\": \"resp_abc123\",\n        \"model\": \"grok-3\",\n        \"usage\": { \"total_tokens\": 142 }\n      },\n      \"createdAt\": \"2026-05-22T00:00:00.001Z\"\n    }\n  ]\n}"
+            },
+            {
+              "name": "400 Invalid UUID",
+              "status": "Bad Request",
+              "code": 400,
+              "body": "{\n  \"success\": false,\n  \"error\": {\n    \"code\": \"VALIDATION_ERROR\",\n    \"message\": \"Validation failed\",\n    \"fields\": {\n      \"root\": [\"conversationId must be a valid UUID\"]\n    }\n  }\n}"
+            },
+            {
+              "name": "404 Not Found",
+              "status": "Not Found",
+              "code": 404,
+              "body": "{\n  \"success\": false,\n  \"error\": {\n    \"code\": \"NOT_FOUND\",\n    \"message\": \"Conversation with id '00000000-0000-0000-0000-000000000000' not found\"\n  }\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

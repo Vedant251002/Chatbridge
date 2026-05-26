@@ -1,0 +1,10 @@
+FROM node:20-alpine
+WORKDIR /app
+RUN apk add --no-cache openssl
+COPY package*.json ./
+RUN npm ci
+COPY tsconfig.json ./
+COPY prisma ./prisma
+RUN npx prisma generate
+# Backend = Baileys gateway + BullMQ worker. No HTTP, no exposed port.
+CMD ["sh", "-c", "npm run db:deploy && npm run dev"]
